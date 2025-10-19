@@ -5,7 +5,11 @@
   "private": true,
   "scripts": {
     "start": "bun run index.ts",
-    "timeline": "bun run index.ts"
+    "timeline": "bun run index.ts",
+    "build:bin": "bun build --compile --sourcemap --target=bun --outfile=bin/git-timeline index.ts"
+  },
+  "bin": {
+    "git-timeline": "bin/git-timeline"
   },
   "devDependencies": {
     "@types/bun": "latest"

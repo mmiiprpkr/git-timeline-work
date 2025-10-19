@@ -70,6 +70,48 @@ Each commit is printed like:
 2024-11-05T13:47:10+07:00  [some/repo]  a1b2c3d  Fix bug title
 	Optional multi-line description body
 ```
+
+Build as a CLI and enable autocompletion
+----------------------------------------
+
+Build a native binary (Bun compile) and expose it as `git-timeline`:
+
+```
+bun run build:bin
+```
+
+After build succeeds, you can run:
+
+```
+./bin/git-timeline --help
+```
+
+Optionally, add the `bin` directory to your PATH or symlink it somewhere on your PATH.
+
+Generate shell completion
+-------------------------
+
+The CLI can generate completion scripts. Use `--generate-completion` with your shell and pipe it to the appropriate location. You may also pass `--cmd-name <name>` if you renamed the command.
+
+- Zsh:
+```
+./bin/git-timeline --generate-completion zsh --cmd-name git-timeline > ~/.zsh/completions/_git-timeline
+fpath=(~/.zsh/completions $fpath)
+autoload -U compinit && compinit
+```
+
+- Bash:
+```
+./bin/git-timeline --generate-completion bash --cmd-name git-timeline > ~/.bash_completion.d/git-timeline
+source ~/.bash_completion.d/git-timeline
+```
+
+- Fish:
+```
+./bin/git-timeline --generate-completion fish --cmd-name git-timeline > ~/.config/fish/completions/git-timeline.fish
+```
+
+On macOS with zsh (default), you might prefer Homebrew-style completions path. Adjust paths as needed.
 To install dependencies:
 
 ```bash

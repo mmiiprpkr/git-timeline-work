@@ -14,6 +14,8 @@ type Args = {
 	until?: string; // YYYY-MM-DD or git-compatible date
 	lastMonth?: boolean; // convenience: previous calendar month
 	format: "plain" | "table" | "md"; // output style
+		generateCompletion?: "zsh" | "bash" | "fish";
+		cmdName?: string; // command name for completion; default 'git-timeline'
 };
 
 type Commit = {
@@ -45,6 +47,8 @@ function parseArgs(argv: string[]): Args {
 			until: undefined,
 			lastMonth: false,
 			format: "plain",
+				generateCompletion: undefined,
+				cmdName: undefined,
 	};
 	const it = argv[Symbol.iterator]();
 	// skip first two entries (bun/node & script)
@@ -89,6 +93,14 @@ function parseArgs(argv: string[]): Args {
 						else args.format = "plain";
 						break;
 					}
+							case "--generate-completion": {
+								const v = takeVal().toLowerCase();
+								if (v === "zsh" || v === "bash" || v === "fish") args.generateCompletion = v;
+								break;
+							}
+							case "--cmd-name":
+								args.cmdName = takeVal();
+								break;
 					case "--since":
 						args.since = takeVal();
 						break;
@@ -121,6 +133,8 @@ Options:
 	--sort <asc|desc>     Sort by commit date ascending or descending (default: desc)
 	--max-depth <n>       Maximum directory depth to traverse (default: 6)
 		--format <plain|table|md>  Output format (default: plain). 'table' for terminal table, 'md' for Markdown table
+		--generate-completion <zsh|bash|fish>  Print shell completion script to stdout
+		--cmd-name <name>     Command name used inside completion script (default: git-timeline)
 	--since <date>        Only include commits after/on this date (git accepts many forms, e.g. 2025-09-01)
 	--until <date>        Only include commits before/on this date (e.g. 2025-10-01)
 	--last-month          Convenience flag: set --since and --until to the previous calendar month
@@ -344,9 +358,86 @@ function printMarkdownTable(commits: Commit[], root: string) {
 	console.log(out);
 }
 
+function generateCompletion(shell: "zsh" | "bash" | "fish", cmdName = "git-timeline"): string {
+	const fn = cmdName.replace(/-/g, "_");
+	if (shell === "zsh") {
+		const lines = [
+			`#compdef ${cmdName}`,
+			"",
+			`_${fn}() {`,
+			"  local -a args",
+			"  args=(",
+			"    '--root[Root folder to search]:path:_files -/'",
+			"    '--email[Author email]'",
+			"    '--name[Author name]'",
+			"    '--sort[Sort order]: :(asc desc)'",
+			"    '--max-depth[Maximum directory depth]:number'",
+			"    '--since[Only include commits after/on this date]'",
+			"    '--until[Only include commits before/on this date]'",
+			"    '--last-month[Previous calendar month]'",
+			"    '--format[Output format]: :(plain table md)'",
+			"    '--generate-completion[Generate completion script]: :(zsh bash fish)'",
+			"    '--cmd-name[Command name for completion script]'",
+			"    '--help[Show help]'",
+			"  )",
+			"  _arguments -s $args",
+			"}",
+			"",
+			`compdef _${fn} ${cmdName}`,
+		];
+		return lines.join("\n");
+	}
+	if (shell === "bash") {
+		const lines = [
+			`_${fn}_complete() {`,
+			"  local cur prev opts",
+			"  COMPREPLY=()",
+			"  cur=\"${COMP_WORDS[COMP_CWORD]}\"",
+			"  prev=\"${COMP_WORDS[COMP_CWORD-1]}\"",
+			"  opts=\"--root --email --name --sort --max-depth --since --until --last-month --format --generate-completion --cmd-name --help\"",
+			"  case \"$prev\" in",
+			"    --sort)",
+			"      COMPREPLY=( $(compgen -W \"asc desc\" -- \"$cur\") ); return 0 ;;",
+			"    --format)",
+			"      COMPREPLY=( $(compgen -W \"plain table md\" -- \"$cur\") ); return 0 ;;",
+			"    --generate-completion)",
+			"      COMPREPLY=( $(compgen -W \"zsh bash fish\" -- \"$cur\") ); return 0 ;;",
+			"  esac",
+			"  COMPREPLY=( $(compgen -W \"$opts\" -- \"$cur\") )",
+			"}",
+			`complete -F _${fn}_complete ${cmdName}`,
+		];
+		return lines.join("\n");
+	}
+	// fish
+	const lines = [
+		`complete -c ${cmdName} -l root -d "Root folder to search" -r`,
+		`complete -c ${cmdName} -l email -d "Author email" -r`,
+		`complete -c ${cmdName} -l name -d "Author name" -r`,
+		`complete -c ${cmdName} -l sort -d "Sort order" -r -a "asc desc"`,
+		`complete -c ${cmdName} -l max-depth -d "Maximum directory depth" -r`,
+		`complete -c ${cmdName} -l since -d "Only include commits after/on this date" -r`,
+		`complete -c ${cmdName} -l until -d "Only include commits before/on this date" -r`,
+		`complete -c ${cmdName} -l last-month -d "Previous calendar month"`,
+		`complete -c ${cmdName} -l format -d "Output format" -r -a "plain table md"`,
+		`complete -c ${cmdName} -l generate-completion -d "Generate completion script" -r -a "zsh bash fish"`,
+		`complete -c ${cmdName} -l cmd-name -d "Command name for completion script" -r`,
+		`complete -c ${cmdName} -l help -d "Show help"`,
+	];
+	return lines.join("\n");
+}
+
 async function main() {
 	const args = parseArgs(typeof Bun !== "undefined" ? Bun.argv : process.argv);
 	const { root, email, sort, maxDepth } = args;
+
+	// If user requested completion script, print and exit
+	if (args.generateCompletion) {
+		const cmdName = args.cmdName || "git-timeline";
+		const script = generateCompletion(args.generateCompletion, cmdName);
+		console.log(script);
+		return;
+	}
 
 	// Resolve last-month convenience into since/until if requested
 	if (args.lastMonth) {
