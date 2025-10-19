@@ -1,0 +1,13 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run timeline default",
+			"type": "shell",
+			"command": "bun run index.ts",
+			"args": [],
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}
